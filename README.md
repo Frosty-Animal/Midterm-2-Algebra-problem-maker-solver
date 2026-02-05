@@ -3,3 +3,4 @@ Make a Algebra problem solver that generates a one or two-variable equation and 
 ## Overview
 This project integrates:
 - **GUI(change later)**
+## Project Structure
