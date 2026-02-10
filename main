@@ -1,0 +1,75 @@
+import random
+
+def generate_one_variable_problem(difficulty):
+    variable = 'x'
+    try:
+        if difficulty == 'addition/subtraction':
+            a = random.randint(-100, 100)
+            b = random.randint(-100, 100)
+            sign = random.choice(['+', '-'])
+            order = [a, b, variable]
+            random.shuffle(order)
+            problem = f"{order[1]} {sign} {order[2]} = {order[0]}"
+
+        elif difficulty == 'multiplication/division':
+            a = random.randint(-100, 100)
+            b = random.randint(-100, 100)
+            c = random.randint(-100, 100)
+            sign = random.choice(['+', '-'])
+            variableExist = ([variable, ' '])
+            order = [a, b, c]
+            random.shuffle(order)
+            problem = f"{order[1]}{random.choice(variableExist)} {sign} {order[2]}{random.choice(variableExist)} = {order[0]}{random.choice(variableExist)}"
+            if variable not in problem:
+                problem = f"{order[1]} {sign} {order[2]} = {order[0]}"
+        
+        elif difficulty == 'exponents/roots':
+            a = random.randint(-10, 10)
+            b = random.randint(1, 5)
+            exponent = random.randint(2, 3)
+            sign = random.choice(['^', '√'])
+            AS = random.choice(['+', '-'])
+            order = [a, b, variable]
+            random.shuffle(order)
+            if sign == '^':
+                problem = f"{order[1]} {AS} {order[2]}^{exponent} = {order[0]}"
+            else:
+                problem = f"{order[1]} {AS} √{order[2]} = {order[0]}"
+            
+
+        elif difficulty == 'mixed':
+            a = random.randint(-100, 100)
+            b = random.randint(-100, 100)
+            c = random.randint(-100, 100)
+            AS = random.choice(['+', '-'])
+            MD = random.choice(['*', '/'])
+            ER = random.choice(['^', '√'])
+            order = [a, b, c, variable]
+            signs = [AS, MD, ER]
+            random.shuffle(order)
+            problem = f"{order[1]} {signs[0]} {order[2]} {signs[1]} {order[3]} = {order[0]}"
+
+        return problem
+    
+    except (UnboundLocalError, EOFError):
+      print("Incorrect Input!")
+      return None
+    
+def generate_two_variable_problem():
+    return problem
+
+if __name__ == "__main__":
+    while True:
+        variableAmount = input("Choose variable amount (one/two) or press 'q' to quit: ")
+        if variableAmount == 'one':
+            difficulty = input("Choose difficulty (addition/subtraction, multiplication/division, exponents/roots, mixed): ")
+            problem = generate_one_variable_problem(difficulty)
+            print(f"Generated problem: {problem}")
+        elif variableAmount == 'two':
+            problem = generate_two_variable_problem()
+            print(f"Generated problem: {problem}")
+        elif variableAmount == 'q':
+            print("Goodbye!")
+            break
+        else:
+            print("Invalid variable amount!")
