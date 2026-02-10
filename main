@@ -16,7 +16,7 @@ def generate_one_variable_problem(difficulty):
             b = random.randint(-100, 100)
             c = random.randint(-100, 100)
             sign = random.choice(['+', '-'])
-            variableExist = ([variable, ' '])
+            variableExist = ([variable, ''])
             order = [a, b, c]
             random.shuffle(order)
             problem = f"{order[1]}{random.choice(variableExist)} {sign} {order[2]}{random.choice(variableExist)} = {order[0]}{random.choice(variableExist)}"
@@ -26,16 +26,21 @@ def generate_one_variable_problem(difficulty):
         elif difficulty == 'exponents/roots':
             a = random.randint(-10, 10)
             b = random.randint(1, 5)
+            c = random.randint(-10, 10)
             exponent = random.randint(2, 3)
             sign = random.choice(['^', '√'])
             AS = random.choice(['+', '-'])
-            order = [a, b, variable]
+            order = [a, b, c]
+            variableExist = ([variable, ''])
             random.shuffle(order)
             if sign == '^':
-                problem = f"{order[1]} {AS} {order[2]}^{exponent} = {order[0]}"
+                problem = f"{order[1]}{random.choice(variableExist)} {AS} {order[2]}{random.choice(variableExist)}^{exponent} = {order[0]}{random.choice(variableExist)}"
+                if variable not in problem:
+                    problem = f"{order[1]} {AS} {order[2]}^{exponent} = {variable}"
             else:
-                problem = f"{order[1]} {AS} √{order[2]} = {order[0]}"
-            
+                problem = f"{order[1]}{random.choice(variableExist)} {AS} √{order[2]*order[2]}{random.choice(variableExist)} = {order[0]}{random.choice(variableExist)}"
+                if variable not in problem:
+                    problem = f"{order[1]} {AS} √{order[2]*order[2]} = {variable}"
 
         elif difficulty == 'mixed':
             a = random.randint(-100, 100)
