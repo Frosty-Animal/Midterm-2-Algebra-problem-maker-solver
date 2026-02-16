@@ -6,11 +6,13 @@ This project integrates:
 - **Sympy for algerbraically solving the equation and giving steps**
 - **Random for the algerbra generation**
 ## Project Structure
-Algerbra-Problem-Maker/Solver
+```
+Algerbra-Problem-Maker-Solver/
 ├── src/
 │   ├── main.py/
 │   ├── GUI.py/
 │   ├── solver.py/
+```
 ## Installation
 ```bash
 # Clone the repo
