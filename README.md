@@ -17,7 +17,7 @@ Algerbra-Problem-Maker-Solver/
 ```bash
 # Clone the repo
 git clone https://github.com/Frosty-Animal/Midterm-2-Algebra-problem-maker-solver.git
-cd scan-to-cnc
+cd Midterm-2-Algebra-problem-maker-solver
 
 # Create virtual environment
 python3 -m venv venv
