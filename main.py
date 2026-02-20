@@ -4,15 +4,16 @@ import sympy as sp
 def generate_one_variable_problem(difficulty):
     variable = 'x'
     try:
-        if difficulty == 'addition/subtraction' or 'AD':
+        dd = (difficulty or '').lower()
+        # normalize and check difficulty robustly
+        if 'add' in dd or 'sub' in dd or dd in ('ad', 'as', 'a/s'):
             a = random.choice([-1, 1]) * random.randint(1, 10)
             b = random.choice([-1, 1]) * random.randint(1, 10)
             sign = random.choice(['+', '-'])
             order = [a, b, variable]
             random.shuffle(order)
             problem = f"{order[1]} {sign} {order[2]} = {order[0]}"
-
-        elif difficulty == 'multiplication/division' or 'MD':
+        elif 'mult' in dd or 'div' in dd or dd in ('md', 'm/d'):
             a = random.choice([-1, 1]) * random.randint(1, 10)
             b = random.choice([-1, 1]) * random.randint(1, 10)
             c = random.choice([-1, 1]) * random.randint(1, 10)
@@ -29,7 +30,7 @@ def generate_one_variable_problem(difficulty):
             if variable not in problem:
                 problem = f"{variable} {sign} {order2[0]} = {order3[0]}"
         
-        elif difficulty == 'exponents/roots' or 'ER':
+        elif 'exponent' in dd or 'root' in dd or dd in ('er', 'e/r'):
             a = random.choice([-1, 1]) * random.randint(1, 10)
             b = random.choice([-1, 1]) * random.randint(1, 10)
             c = random.choice([-1, 1]) * random.randint(1, 10)
@@ -48,7 +49,7 @@ def generate_one_variable_problem(difficulty):
                 if variable not in problem:
                     problem = f"{order[1]} {AS} √{order[2]*order[2]} = {variable}"
 
-        elif difficulty == 'mixed':
+        elif 'mixed' in dd:
             a = random.choice([-1, 1]) * random.randint(1, 10)
             b = random.choice([-1, 1]) * random.randint(1, 10)
             c = random.choice([-1, 1]) * random.randint(1, 10)
@@ -77,14 +78,14 @@ def generate_two_variable_problem(difficulty):
     variable1 = 'x'
     variable2 = 'y'
     try:
-        if difficulty == 'addition/subtraction' or 'AS':
+        dd = (difficulty or '').lower()
+        if 'add' in dd or 'sub' in dd or dd in ('as', 'a/s', 'ad'):
             a = random.choice([-1, 1]) * random.randint(1, 10)
             sign = random.choice(['+', '-'])
             order = [a, variable1, variable2]
             random.shuffle(order)
             problem = f"{order[1]} {sign} {order[2]} = {order[0]}"
-
-        elif difficulty == 'multiplication/division' or 'MD':
+        elif 'mult' in dd or 'div' in dd or dd in ('md', 'm/d'):
             a = random.choice([-1, 1]) * random.randint(1, 10)
             b = random.choice([-1, 1]) * random.randint(1, 10)
             c = random.choice([-1, 1]) * random.randint(1, 10)
@@ -93,8 +94,7 @@ def generate_two_variable_problem(difficulty):
             order = [a,b,c, variable1, variable2]
             random.shuffle(order)
             problem = f"{order[1]}{random.choice(MD)}{order[2]} {sign} {order[3]}{random.choice(MD)}{order[4]} = {order[0]}"
-
-        elif difficulty == 'exponents/roots' or 'ER':
+        elif 'exponent' in dd or 'root' in dd or dd in ('er', 'e/r'):
             a = random.choice([-1, 1]) * random.randint(1, 10)
             b = random.choice([-1, 1]) * random.randint(1, 10)
             c = random.choice([-1, 1]) * random.randint(1, 10)
@@ -112,7 +112,7 @@ def generate_two_variable_problem(difficulty):
                 if variable1 not in problem or variable2 not in problem:
                     problem = f"{order[0]} {AS} √{order[1]*order[1]} = {variable1}*{variable2}"
 
-        elif difficulty == 'mixed':
+        elif 'mixed' in dd:
             a = random.choice([-1, 1]) * random.randint(1, 10)
             b = random.choice([-1, 1]) * random.randint(1, 10)
             c = random.choice([-1, 1]) * random.randint(1, 10)
@@ -131,17 +131,49 @@ def generate_two_variable_problem(difficulty):
         print("Incorrect Input!")
         return None
 
-#def generate_Calc_problem(CalcType):
-    #variable = 'x'
-    #try:
-        #if CalcType == 'D':
-            
-        #elif CalcType == 'I':
-            
-        #return problem
-    #except:
-        #print("Incorrect Input")
-        #return None
+def generate_Calc_problem(CalcType):
+    x = sp.symbols('x')
+    try:
+        def random_polynomial(max_deg=3):
+            deg = random.randint(1, max_deg)
+            coeffs = [random.randint(-5, 5) for _ in range(deg + 1)]
+            return sum(coeffs[i] * x**i for i in range(deg + 1))
+
+        def random_trig() -> sp.Expr:
+            a = sp.Integer(random.randint(1, 5))
+            b = sp.Integer(random.randint(1, 3))
+            c = sp.Integer(random.randint(1, 5))
+            d = sp.Integer(random.randint(1, 3))
+            result: sp.Expr = a * sp.sin(b * x) + c * sp.cos(d * x)  # type: ignore[operator]
+            return result
+
+        def random_exp_log() -> sp.Expr:
+            a = sp.Integer(random.randint(1, 4))
+            b = sp.Integer(random.randint(1, 3))
+            expr: sp.Expr = a * sp.exp(b * x)  # type: ignore[operator]
+            if random.choice([True, False]):
+                c = sp.Integer(random.randint(1, 3))
+                expr = expr + c * sp.log(x)  # type: ignore[operator]
+            return expr
+
+        generators = [random_polynomial, random_trig, random_exp_log]
+        f = random.choice(generators)()
+
+        if CalcType == 'D':
+            problem = f"Differentiate: {f}"
+            solution = sp.diff(f, x)
+        elif CalcType == 'I':
+            problem = f"Integrate: {f}"
+            solution = sp.integrate(f, x)
+        else:
+            print("CalcType must be 'D' or 'I'")
+            return None
+
+        return problem, solution
+    except Exception as e:
+        print("Incorrect Input:", e)
+        return None
+    
 def main():
     while True:
         ProblemType = input("Would you like to solve a Calculus or Algerbra Problem? Press C for Calculus and A for Algerbra: ")
@@ -161,8 +193,18 @@ def main():
             else:
                     print("Invalid variable amount!")
         elif ProblemType == 'C':
-            CalcType = input("Derivative(D) or Integral(I) problem")
-            problem = generate_Calc_problem(CalcType)
+            CalcType = input("Derivative(D) or Integral(I) problem: ")
+            res = generate_Calc_problem(CalcType)
+            if res:
+                prob, sol = res
+                print(f"Generated problem: {prob}")
+                print(f"Solution (SymPy): {sol}")
+                try:
+                    print(f"Solution (LaTeX): {sp.latex(sol)}")
+                except Exception:
+                    pass
+            else:
+                print("Could not generate calculus problem.")
             
 
 if __name__ == "__main__":
