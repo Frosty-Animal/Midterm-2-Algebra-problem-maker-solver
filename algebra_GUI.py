@@ -1,5 +1,13 @@
 import tkinter as tk
-from main import generate_one_variable_problem, generate_two_variable_problem
+from tkinter import scrolledtext
+from main import generate_one_variable_problem, generate_two_variable_problem, generate_Calc_problem
+from solver import (
+    solve_algebra,
+    check_algebra_answer,
+    check_calc_answer,
+    algebra_steps,
+    calc_steps,
+)
 
 # ==========================================================
 # App state
@@ -7,6 +15,8 @@ from main import generate_one_variable_problem, generate_two_variable_problem
 num_variables = None          # 1 or 2
 operation_type = None         # "A/S", "M/D", "E/S", "Mixed"
 current_problem = None        # problem string shown to user
+current_solution = None       # for calculus problems (SymPy expr)
+calc_kind = None              # 'Derivative' or 'Integral' when in calculus flow
 
 
 # Map GUI button labels -> difficulty strings expected by main.py
@@ -21,7 +31,7 @@ DIFFICULTY_MAP = {
 # ---------- Navigation helper ----------
 def show_frame(frame):
     """Hide all frames and show the selected one."""
-    for f in (var_frame, op_frame, input_frame):
+    for f in FRAMES:
         f.pack_forget()
     frame.pack(expand=True)
 
@@ -34,8 +44,8 @@ def choose_variables(n: int):
     operation_type = None
     current_problem = None
 
-    # Clear any prior answer/problem display
     entry_box.delete(0, tk.END)
+    result_label.config(text="", fg="black")
     problem_value_label.config(text="(pick an operation to generate a problem)")
     show_frame(op_frame)
 
@@ -47,7 +57,6 @@ def choose_operation(op: str):
     operation_type = op
     difficulty = DIFFICULTY_MAP.get(op)
 
-    # Generate the problem using the correct function from main.py
     if num_variables == 1:
         current_problem = generate_one_variable_problem(difficulty)
     elif num_variables == 2:
@@ -55,80 +64,183 @@ def choose_operation(op: str):
     else:
         current_problem = None
 
-    # Display it (fallback message if generation failed)
     if current_problem:
         problem_value_label.config(text=current_problem)
     else:
         problem_value_label.config(text="(couldn't generate a problem — try again)")
 
-    # Clear answer box each time we generate a new problem
     entry_box.delete(0, tk.END)
+    result_label.config(text="", fg="black")
     show_frame(input_frame)
 
 
+def choose_type(kind: str):
+    """User chooses whether they want Algebra or Calculus."""
+    global operation_type
+    operation_type = kind
+    entry_box.delete(0, tk.END)
+    result_label.config(text="", fg="black")
+    problem_value_label.config(text="(pick an operation to generate a problem)")
+    if kind == "Algebra":
+        show_frame(var_frame)
+    else:
+        show_frame(calc_frame)
+
+
+def choose_calc(kind: str):
+    """User picks Derivative or Integral — generate calculus problem."""
+    global current_problem, current_solution, calc_kind, operation_type
+    calc_kind = kind
+    operation_type = "Calculus"
+    arg = 'D' if kind == 'Derivative' else 'I'
+    res = generate_Calc_problem(arg)
+    if res:
+        prob, sol = res
+        current_problem = prob
+        current_solution = sol
+        problem_value_label.config(text=current_problem)
+    else:
+        problem_value_label.config(text="(couldn't generate a problem — try again)")
+    entry_box.delete(0, tk.END)
+    result_label.config(text="", fg="black")
+    show_frame(input_frame)
+
+
+# ---------- Check answer ----------
 def get_entry_value():
+    """Validate the user's answer and display feedback."""
     user_input = entry_box.get().strip()
-    print("Problem:", current_problem)
-    print("User entered:", user_input)
-    print("Variables:", num_variables)
-    print("Operation:", operation_type)
+    if not user_input:
+        result_label.config(text="Please enter an answer.", fg="#b8860b")
+        return
+
+    if operation_type == "Calculus":
+        if current_solution is None:
+            result_label.config(text="No solution to check against.", fg="red")
+            return
+        is_correct, msg = check_calc_answer(user_input, current_solution)
+    else:
+        if current_problem is None:
+            result_label.config(text="No problem loaded.", fg="red")
+            return
+        is_correct, msg = check_algebra_answer(current_problem, user_input, num_variables or 1)
+
+    if is_correct is True:
+        result_label.config(text=msg, fg="green")
+    elif is_correct is False:
+        result_label.config(text=msg, fg="red")
+    else:
+        result_label.config(text=msg, fg="#b8860b")
 
 
+# ---------- Show answer / steps ----------
+def show_answer():
+    """Display the step-by-step solution in the solution frame."""
+    if current_problem is None:
+        return
+
+    if operation_type == "Calculus":
+        if current_solution is None:
+            return
+        text = calc_steps(current_problem, current_solution, calc_kind or "Derivative")
+    else:
+        text = algebra_steps(current_problem, num_variables or 1)
+
+    # Also show the problem at the top of the solution frame
+    solution_problem_label.config(text=current_problem)
+
+    solution_text.config(state=tk.NORMAL)
+    solution_text.delete("1.0", tk.END)
+    solution_text.insert(tk.END, text)
+    solution_text.config(state=tk.DISABLED)
+
+    show_frame(solution_frame)
+
+
+# ---------- New problem (same settings) ----------
 def new_problem():
     """Generate another problem with the same settings."""
     if operation_type is None:
         return
-    choose_operation(operation_type)
+    if operation_type == "Calculus":
+        if calc_kind:
+            choose_calc(calc_kind)
+    else:
+        choose_operation(operation_type)
 
 
-# ---------- Reset function ----------
+# ---------- Reset ----------
 def reset_app():
-    global num_variables, operation_type, current_problem
+    global num_variables, operation_type, current_problem, current_solution, calc_kind
     num_variables = None
     operation_type = None
     current_problem = None
+    current_solution = None
+    calc_kind = None
 
     entry_box.delete(0, tk.END)
+    result_label.config(text="", fg="black")
     problem_value_label.config(text="")
-    show_frame(var_frame)
+    show_frame(type_frame)
 
 
 # ==========================================================
 # Main window
 # ==========================================================
 root = tk.Tk()
-root.title("Algebra Generator")
-root.geometry("600x450")
+root.title("Math Problem Generator")
+root.geometry("640x520")
+root.resizable(False, False)
 
 
 # ==========================================================
-# Frame 1 — Choose number of variables
+# Frame — Choose Algebra or Calculus
+# ==========================================================
+type_frame = tk.Frame(root)
+
+tk.Label(type_frame, text="Choose problem type", font=("Arial", 14)).pack(pady=20)
+tk.Button(type_frame, text="Algebra", width=20, command=lambda: choose_type("Algebra")).pack(pady=5)
+tk.Button(type_frame, text="Calculus", width=20, command=lambda: choose_type("Calculus")).pack(pady=5)
+tk.Button(type_frame, text="Quit", width=20, command=root.destroy).pack(pady=15)
+
+
+# ==========================================================
+# Frame — Choose number of variables
 # ==========================================================
 var_frame = tk.Frame(root)
 
 tk.Label(var_frame, text="Choose number of variables", font=("Arial", 14)).pack(pady=20)
-
-tk.Button(var_frame, text="1 Variable", command=lambda: choose_variables(1)).pack(pady=5)
-tk.Button(var_frame, text="2 Variables", command=lambda: choose_variables(2)).pack(pady=5)
+tk.Button(var_frame, text="1 Variable", width=20, command=lambda: choose_variables(1)).pack(pady=5)
+tk.Button(var_frame, text="2 Variables", width=20, command=lambda: choose_variables(2)).pack(pady=5)
+tk.Button(var_frame, text="Back", width=20, command=lambda: show_frame(type_frame)).pack(pady=15)
 
 
 # ==========================================================
-# Frame 2 — Choose operation type
+# Frame — Choose operation type
 # ==========================================================
 op_frame = tk.Frame(root)
 
 tk.Label(op_frame, text="Choose operation type", font=("Arial", 14)).pack(pady=20)
-
-tk.Button(op_frame, text="Addition/Subtraction", command=lambda: choose_operation("A/S")).pack(pady=5)
-tk.Button(op_frame, text="Multiplication/Division", command=lambda: choose_operation("M/D")).pack(pady=5)
-tk.Button(op_frame, text="Exponents/Square Root", command=lambda: choose_operation("E/S")).pack(pady=5)
-tk.Button(op_frame, text="Mixed", command=lambda: choose_operation("Mixed")).pack(pady=5)
-
-tk.Button(op_frame, text="Back", command=lambda: show_frame(var_frame)).pack(pady=15)
+tk.Button(op_frame, text="Addition / Subtraction", width=24, command=lambda: choose_operation("A/S")).pack(pady=5)
+tk.Button(op_frame, text="Multiplication / Division", width=24, command=lambda: choose_operation("M/D")).pack(pady=5)
+tk.Button(op_frame, text="Exponents / Square Root", width=24, command=lambda: choose_operation("E/S")).pack(pady=5)
+tk.Button(op_frame, text="Mixed", width=24, command=lambda: choose_operation("Mixed")).pack(pady=5)
+tk.Button(op_frame, text="Back", width=24, command=lambda: show_frame(var_frame)).pack(pady=15)
 
 
 # ==========================================================
-# Frame 3 — Show problem + input answer
+# Frame — Derivative or Integral
+# ==========================================================
+calc_frame = tk.Frame(root)
+
+tk.Label(calc_frame, text="Choose calculus type", font=("Arial", 14)).pack(pady=20)
+tk.Button(calc_frame, text="Derivative", width=20, command=lambda: choose_calc("Derivative")).pack(pady=5)
+tk.Button(calc_frame, text="Integral", width=20, command=lambda: choose_calc("Integral")).pack(pady=5)
+tk.Button(calc_frame, text="Back", width=20, command=lambda: show_frame(type_frame)).pack(pady=15)
+
+
+# ==========================================================
+# Frame — Show problem + input answer
 # ==========================================================
 input_frame = tk.Frame(root)
 
@@ -138,26 +250,67 @@ problem_value_label = tk.Label(
     input_frame,
     text="(pick an operation to generate a problem)",
     font=("Arial", 16),
-    wraplength=560,
+    wraplength=600,
     justify="center",
 )
-problem_value_label.pack(pady=(0, 20))
+problem_value_label.pack(pady=(0, 15))
 
 tk.Label(input_frame, text="Enter your answer:", font=("Arial", 12)).pack()
-
 entry_box = tk.Entry(input_frame, width=35, font=("Arial", 12))
-entry_box.pack(pady=10)
+entry_box.pack(pady=8)
 
-button_row = tk.Frame(input_frame)
-button_row.pack(pady=10)
+# Feedback label (correct / incorrect)
+result_label = tk.Label(input_frame, text="", font=("Arial", 12), wraplength=560, justify="center")
+result_label.pack(pady=(0, 8))
 
-tk.Button(button_row, text="Submit", command=get_entry_value, width=10).pack(side="left", padx=6)
-tk.Button(button_row, text="New Problem", command=new_problem, width=12).pack(side="left", padx=6)
-tk.Button(button_row, text="Change Type", command=lambda: show_frame(op_frame), width=12).pack(side="left", padx=6)
+# --- button row 1: Submit / Show Answer ---
+btn_row1 = tk.Frame(input_frame)
+btn_row1.pack(pady=4)
 
-tk.Button(input_frame, text="Reset", command=reset_app).pack(pady=(10, 0))
+tk.Button(btn_row1, text="Submit", command=get_entry_value, width=12).pack(side="left", padx=6)
+tk.Button(btn_row1, text="Show Answer", command=show_answer, width=12).pack(side="left", padx=6)
+
+# --- button row 2: New Problem / Change Type / Reset ---
+btn_row2 = tk.Frame(input_frame)
+btn_row2.pack(pady=4)
+
+tk.Button(btn_row2, text="New Problem", command=new_problem, width=12).pack(side="left", padx=6)
+tk.Button(
+    btn_row2,
+    text="Change Type",
+    command=lambda: show_frame(calc_frame) if operation_type == "Calculus" else show_frame(op_frame),
+    width=12,
+).pack(side="left", padx=6)
+tk.Button(btn_row2, text="Reset", command=reset_app, width=12).pack(side="left", padx=6)
 
 
-# ---------- Start on first screen ----------
-show_frame(var_frame)
+# ==========================================================
+# Frame — Step-by-step solution display
+# ==========================================================
+solution_frame = tk.Frame(root)
+
+tk.Label(solution_frame, text="Step-by-Step Solution", font=("Arial", 14, "bold")).pack(pady=(15, 5))
+
+solution_problem_label = tk.Label(
+    solution_frame, text="", font=("Arial", 13), wraplength=600, justify="center",
+)
+solution_problem_label.pack(pady=(0, 8))
+
+solution_text = scrolledtext.ScrolledText(
+    solution_frame, width=62, height=14, font=("Courier", 11),
+    wrap=tk.WORD, state=tk.DISABLED, bg="#f9f9f9",
+)
+solution_text.pack(padx=15, pady=(0, 10))
+
+# --- post-solution buttons ---
+sol_btn_row = tk.Frame(solution_frame)
+sol_btn_row.pack(pady=8)
+
+tk.Button(sol_btn_row, text="New Problem", command=new_problem, width=14).pack(side="left", padx=8)
+tk.Button(sol_btn_row, text="Reset", command=reset_app, width=14).pack(side="left", padx=8)
+
+
+# ---------- Start on the type selection screen ----------
+FRAMES = [type_frame, var_frame, op_frame, calc_frame, input_frame, solution_frame]
+show_frame(type_frame)
 root.mainloop()
