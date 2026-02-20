@@ -1,3 +1,5 @@
+# Run python ./algebra_GUI.py with main.py & solver.py in same folder for program to work
+
 import tkinter as tk
 from tkinter import scrolledtext
 from main import generate_one_variable_problem, generate_two_variable_problem, generate_Calc_problem
@@ -13,14 +15,14 @@ from solver import (
 # App state
 # ==========================================================
 num_variables = None          # 1 or 2
-operation_type = None         # "A/S", "M/D", "E/S", "Mixed"
+operation_type = None         # a/s, m/d, e/r, mixed
 current_problem = None        # problem string shown to user
-current_solution = None       # for calculus problems (SymPy expr)
-calc_kind = None              # 'Derivative' or 'Integral' when in calculus flow
-solve_for_var = None          # "x" or "y" for 2-variable problems
+current_solution = None       # for calc problems
+calc_kind = None              # derivative or integral 
+solve_for_var = None          # x or y for 2-variable problems
 
 
-# Map GUI button labels -> difficulty strings expected by main.py
+# Map GUI button labels
 DIFFICULTY_MAP = {
     "A/S": "addition/subtraction",
     "M/D": "multiplication/division",
@@ -84,7 +86,7 @@ def choose_operation(op: str):
 
 
 def choose_type(kind: str):
-    """User chooses whether they want Algebra or Calculus."""
+    # user chooses algebra or calc
     global operation_type
     operation_type = kind
     entry_box.delete(0, tk.END)
@@ -97,7 +99,7 @@ def choose_type(kind: str):
 
 
 def choose_calc(kind: str):
-    """User picks Derivative or Integral — generate calculus problem."""
+    # user chooses derivative or integral
     global current_problem, current_solution, calc_kind, operation_type
     calc_kind = kind
     operation_type = "Calculus"
@@ -118,7 +120,7 @@ def choose_calc(kind: str):
 
 # ---------- Check answer ----------
 def get_entry_value():
-    """Validate the user's answer and display feedback."""
+    # check answer & get feedback
     user_input = entry_box.get().strip()
     if not user_input:
         result_label.config(text="Please enter an answer.", fg="#b8860b")
@@ -133,7 +135,7 @@ def get_entry_value():
         if current_problem is None:
             result_label.config(text="No problem loaded.", fg="red")
             return
-        # For 2-variable problems, pass the chosen target variable
+        # for 2-variable problems, pass the chosen target variable
         target = solve_for_strvar.get() if (num_variables or 0) == 2 else None
         is_correct, msg = check_algebra_answer(
             current_problem, user_input, num_variables or 1, solve_for=target
@@ -161,7 +163,7 @@ def show_answer():
         target = solve_for_strvar.get() if (num_variables or 0) == 2 else None
         text = algebra_steps(current_problem, num_variables or 1, solve_for=target)
 
-    # Also show the problem at the top of the solution frame
+    # also show the problem at the top of the solution frame
     solution_problem_label.config(text=current_problem)
 
     solution_text.config(state=tk.NORMAL)
@@ -272,7 +274,7 @@ problem_value_label = tk.Label(
 )
 problem_value_label.pack(pady=(0, 15))
 
-# "Solve for x / y" selector — only shown for 2-variable problems
+# "Solve for x / y" selector for 2 var problems
 solve_for_strvar = tk.StringVar(value="x")
 solve_for_selector = tk.Frame(input_frame)
 tk.Label(solve_for_selector, text="Solve for:", font=("Arial", 11)).pack(side="left", padx=(0, 8))
@@ -280,13 +282,13 @@ tk.Radiobutton(solve_for_selector, text="x", variable=solve_for_strvar,
                value="x", font=("Arial", 11)).pack(side="left", padx=4)
 tk.Radiobutton(solve_for_selector, text="y", variable=solve_for_strvar,
                value="y", font=("Arial", 11)).pack(side="left", padx=4)
-# (starts hidden — choose_operation packs it when num_variables == 2)
+# starts hidden, choose_operation packs it when num_variables == 2
 
 tk.Label(input_frame, text="Enter your answer:", font=("Arial", 12)).pack()
 entry_box = tk.Entry(input_frame, width=35, font=("Arial", 12))
 entry_box.pack(pady=8)
 
-# Feedback label (correct / incorrect)
+# feedback label (correct / incorrect)
 result_label = tk.Label(input_frame, text="", font=("Arial", 12), wraplength=560, justify="center")
 result_label.pack(pady=(0, 8))
 
