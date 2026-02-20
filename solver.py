@@ -85,8 +85,14 @@ def _parse_equation(problem_str: str):
 
 # ── algebra solving ──────────────────────────────────────────────────────
 
-def solve_algebra(problem_str: str):
+def solve_algebra(problem_str: str, solve_for: str | None = None):
     """Solve an algebra equation.
+
+    Parameters
+    ----------
+    problem_str : str               – the equation string
+    solve_for   : str | None        – e.g. "x" or "y"; when given the solver
+                                      isolates that specific variable.
 
     Returns a list of solution dicts, e.g. ``[{x: 3}]`` or
     ``[{x: 5 - y}]``.  Returns ``[]`` on failure.
@@ -95,7 +101,11 @@ def solve_algebra(problem_str: str):
     if eq is None:
         return []
     try:
-        sols = sp.solve(eq, syms, dict=True)
+        if solve_for:
+            target = sp.Symbol(solve_for)
+            sols = sp.solve(eq, target, dict=True)
+        else:
+            sols = sp.solve(eq, syms, dict=True)
         return sols if sols else []
     except Exception:
         return []
@@ -103,14 +113,16 @@ def solve_algebra(problem_str: str):
 
 # ── answer checking ──────────────────────────────────────────────────────
 
-def check_algebra_answer(problem_str: str, user_input: str, num_variables: int):
+def check_algebra_answer(problem_str: str, user_input: str, num_variables: int,
+                         solve_for: str | None = None):
     """Check the user's answer for an algebra problem.
 
     Parameters
     ----------
-    problem_str : str   – the equation shown to the user
-    user_input  : str   – what the user typed
-    num_variables : int  – 1 or 2
+    problem_str   : str        – the equation shown to the user
+    user_input    : str        – what the user typed
+    num_variables : int        – 1 or 2
+    solve_for     : str | None – target variable for 2-variable problems ("x" or "y")
 
     Returns
     -------
@@ -120,7 +132,7 @@ def check_algebra_answer(problem_str: str, user_input: str, num_variables: int):
     if not user_input.strip():
         return None, "Please enter an answer."
 
-    solutions = solve_algebra(problem_str)
+    solutions = solve_algebra(problem_str, solve_for=solve_for)
     if not solutions:
         return None, "Sorry – the solver couldn't find a solution for this problem."
 
@@ -173,39 +185,43 @@ def check_algebra_answer(problem_str: str, user_input: str, num_variables: int):
 
     # ── two-variable problems ────────────────────────────────────────
     else:
-        # The solution is typically one variable in terms of the other.
-        # Try to parse user input as "var = expr" or just an expression.
+        # The solution is one variable in terms of the other.
         eq, syms = _parse_equation(problem_str)
         if eq is None:
             return None, "Couldn't parse the problem."
 
-        # Attempt to match user answer symbolically
+        target = sp.Symbol(solve_for) if solve_for else None
+
         user_clean = user_input.strip()
         # Check if user wrote e.g. "x = 3 - y"
         m = re.match(r"([a-zA-Z])\s*=\s*(.+)", user_clean)
         if m:
             var_name, expr_str = m.group(1), m.group(2)
             var_sym = sp.Symbol(var_name)
-            expr_str = _preprocess(expr_str)
-            local_dict = {str(s): s for s in syms}
-            local_dict["sqrt"] = sp.sqrt
-            try:
-                user_expr = sp.sympify(expr_str, locals=local_dict)
-            except Exception:
-                return False, f"Couldn't parse your expression.\nCorrect answer: {correct_display}"
-
-            # Check against each solution
-            for sol_dict in solutions:
-                if var_sym in sol_dict:
-                    if sp.simplify(user_expr - sol_dict[var_sym]) == 0:
-                        return True, "Correct! ✓"
-            return False, f"Not quite.\nCorrect answer: {correct_display}"
+        elif target:
+            # User typed just the expression — assume they're solving for the target
+            var_sym = target
+            expr_str = user_clean
         else:
-            # No "var =" prefix – hard to know which variable they're solving for
             return None, (
                 f"Tip: enter your answer as  x = <expression>  or  y = <expression>.\n"
                 f"Correct answer: {correct_display}"
             )
+
+        expr_str = _preprocess(expr_str)
+        local_dict = {str(s): s for s in syms}
+        local_dict["sqrt"] = sp.sqrt
+        try:
+            user_expr = sp.sympify(expr_str, locals=local_dict)
+        except Exception:
+            return False, f"Couldn't parse your expression.\nCorrect answer: {correct_display}"
+
+        # Check against each solution
+        for sol_dict in solutions:
+            if var_sym in sol_dict:
+                if sp.simplify(user_expr - sol_dict[var_sym]) == 0:
+                    return True, "Correct! ✓"
+        return False, f"Not quite.\nCorrect answer: {correct_display}"
 
 
 def check_calc_answer(user_input: str, correct_solution: sp.Expr):
@@ -241,15 +257,24 @@ def check_calc_answer(user_input: str, correct_solution: sp.Expr):
 
 # ── step-by-step explanations ────────────────────────────────────────────
 
-def algebra_steps(problem_str: str, num_variables: int) -> str:
-    """Return a human-readable, step-by-step solution for an algebra problem."""
+def algebra_steps(problem_str: str, num_variables: int,
+                  solve_for: str | None = None) -> str:
+    """Return a human-readable, step-by-step solution for an algebra problem.
+
+    Parameters
+    ----------
+    solve_for : str | None – for 2-variable problems, which variable to isolate
+    """
     eq, syms = _parse_equation(problem_str)
     if eq is None:
         return "Could not parse the equation."
 
-    solutions = solve_algebra(problem_str)
+    solutions = solve_algebra(problem_str, solve_for=solve_for)
     if not solutions:
         return "The solver could not find a solution."
+
+    # Determine the target symbol for labeling
+    target = sp.Symbol(solve_for) if solve_for else None
 
     lines: list[str] = []
     lines.append("─" * 48)
@@ -260,6 +285,8 @@ def algebra_steps(problem_str: str, num_variables: int) -> str:
     lines.append("")
     lines.append(f"Step 1 ▸ Original equation")
     lines.append(f"   {problem_str}")
+    if target:
+        lines.append(f"   (Solving for {solve_for})")
 
     # Step 2 – rewrite: move everything to LHS = 0
     lhs_minus_rhs = sp.expand(eq.lhs - eq.rhs)
