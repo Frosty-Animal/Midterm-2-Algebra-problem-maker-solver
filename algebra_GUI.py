@@ -17,6 +17,7 @@ operation_type = None         # "A/S", "M/D", "E/S", "Mixed"
 current_problem = None        # problem string shown to user
 current_solution = None       # for calculus problems (SymPy expr)
 calc_kind = None              # 'Derivative' or 'Integral' when in calculus flow
+solve_for_var = None          # "x" or "y" for 2-variable problems
 
 
 # Map GUI button labels -> difficulty strings expected by main.py
@@ -71,6 +72,14 @@ def choose_operation(op: str):
 
     entry_box.delete(0, tk.END)
     result_label.config(text="", fg="black")
+
+    # Show / hide the "Solve for x / y" selector
+    if num_variables == 2:
+        solve_for_selector.pack(pady=(0, 6))
+        solve_for_strvar.set("x")       # default to x
+    else:
+        solve_for_selector.pack_forget()
+
     show_frame(input_frame)
 
 
@@ -103,6 +112,7 @@ def choose_calc(kind: str):
         problem_value_label.config(text="(couldn't generate a problem — try again)")
     entry_box.delete(0, tk.END)
     result_label.config(text="", fg="black")
+    solve_for_selector.pack_forget()      # not needed for calculus
     show_frame(input_frame)
 
 
@@ -123,7 +133,11 @@ def get_entry_value():
         if current_problem is None:
             result_label.config(text="No problem loaded.", fg="red")
             return
-        is_correct, msg = check_algebra_answer(current_problem, user_input, num_variables or 1)
+        # For 2-variable problems, pass the chosen target variable
+        target = solve_for_strvar.get() if (num_variables or 0) == 2 else None
+        is_correct, msg = check_algebra_answer(
+            current_problem, user_input, num_variables or 1, solve_for=target
+        )
 
     if is_correct is True:
         result_label.config(text=msg, fg="green")
@@ -144,7 +158,8 @@ def show_answer():
             return
         text = calc_steps(current_problem, current_solution, calc_kind or "Derivative")
     else:
-        text = algebra_steps(current_problem, num_variables or 1)
+        target = solve_for_strvar.get() if (num_variables or 0) == 2 else None
+        text = algebra_steps(current_problem, num_variables or 1, solve_for=target)
 
     # Also show the problem at the top of the solution frame
     solution_problem_label.config(text=current_problem)
@@ -181,6 +196,8 @@ def reset_app():
     entry_box.delete(0, tk.END)
     result_label.config(text="", fg="black")
     problem_value_label.config(text="")
+    solve_for_selector.pack_forget()
+    solve_for_strvar.set("x")
     show_frame(type_frame)
 
 
@@ -254,6 +271,16 @@ problem_value_label = tk.Label(
     justify="center",
 )
 problem_value_label.pack(pady=(0, 15))
+
+# "Solve for x / y" selector — only shown for 2-variable problems
+solve_for_strvar = tk.StringVar(value="x")
+solve_for_selector = tk.Frame(input_frame)
+tk.Label(solve_for_selector, text="Solve for:", font=("Arial", 11)).pack(side="left", padx=(0, 8))
+tk.Radiobutton(solve_for_selector, text="x", variable=solve_for_strvar,
+               value="x", font=("Arial", 11)).pack(side="left", padx=4)
+tk.Radiobutton(solve_for_selector, text="y", variable=solve_for_strvar,
+               value="y", font=("Arial", 11)).pack(side="left", padx=4)
+# (starts hidden — choose_operation packs it when num_variables == 2)
 
 tk.Label(input_frame, text="Enter your answer:", font=("Arial", 12)).pack()
 entry_box = tk.Entry(input_frame, width=35, font=("Arial", 12))
